@@ -1048,10 +1048,11 @@ function MERFISHProbeDesign(varargin)
         
         if keepGoingFlag
             oligos = [];
-
             allOligos = [];
             lastGene = '';
-            
+            Genes={};
+            ProbeNumbers={};
+                        
             %if keepAllPossibleProbes
              %   allHeaders = cell(sum(vertcat(finalTargetRegions.numRegions)), 1);
               %  allSeqs = cell(sum(vertcat(finalTargetRegions.numRegions)), 1);
@@ -1201,6 +1202,10 @@ function MERFISHProbeDesign(varargin)
                         indsToKeepForReal = indsToKeepForReal(randperm(length(indsToKeepForReal), min([length(indsToKeepForReal) numProbesPerGene])));
                         display(['... keeping ' num2str(length(indsToKeepForReal)) ' probes']);
                         fprintf(logFID, '%s - Retaining %d probes\n', datestr(datetime), length(indsToKeepForReal));
+                        %write the genename
+                        Genes=[Genes,localGeneName];
+                        ProbeNumbers=[ProbeNumbers,length(indsToKeepForReal)];
+       
 
                         % Check on number
                         if length(indsToKeepForReal) < numProbesPerGene
@@ -1301,7 +1306,10 @@ function MERFISHProbeDesign(varargin)
             fastawrite(possibleOligosPath, oligos);
             display(['... completed in ' num2str(toc(writeTimer))]);
             fprintf(logFID, '%s - Completed in %d s\n', datestr(datetime), toc(writeTimer));
-            
+            %%%%%Write out how many probes per gene as a table
+            Genes=Genes'
+            ProbeNumbers=ProbeNumbers'
+            writetable(table(Genes,ProbeNumbers),[analysisSavePath 'probesPerGene.csv'],'WriteRowNames',false)
             if keepAllPossibleProbes
                 
                 %allOligos = cell2struct([allHeaders, allSeqs], {'Header', 'Sequence'}, 2);
