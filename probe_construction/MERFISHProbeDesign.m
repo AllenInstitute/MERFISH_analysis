@@ -1048,11 +1048,12 @@ function MERFISHProbeDesign(varargin)
         
         if keepGoingFlag
             oligos = [];
+
             allOligos = [];
             lastGene = '';
+
             Genes={};
-            ProbeNumbers={};
-                        
+            ProbeNumbers={};           
             %if keepAllPossibleProbes
              %   allHeaders = cell(sum(vertcat(finalTargetRegions.numRegions)), 1);
               %  allSeqs = cell(sum(vertcat(finalTargetRegions.numRegions)), 1);
@@ -1204,8 +1205,7 @@ function MERFISHProbeDesign(varargin)
                         fprintf(logFID, '%s - Retaining %d probes\n', datestr(datetime), length(indsToKeepForReal));
                         %write the genename
                         Genes=[Genes,localGeneName];
-                        ProbeNumbers=[ProbeNumbers,length(indsToKeepForReal)];
-       
+                        ProbeNumbers=[ProbeNumbers,length(indsToKeepForReal)];       
 
                         % Check on number
                         if length(indsToKeepForReal) < numProbesPerGene
