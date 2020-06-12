@@ -503,9 +503,11 @@
                                                                                            regionDesignParameters.specificity(2));
 
     
-
+                                                                                       
+    trRegionsFilteredFileName=strcat('Filtered_trRegions_', targetRegionsFilter.tRFilterMethod)                                                                                 
     % Always rebuild these paths. Do not use from object.                                                                                   
     trRegionsPath =  [analysisSavePath trRegionsFileName];
+    trRegionsFilteredPath= [analysisSavePath trRegionsFilteredFileName]
     usedReadoutPath = [analysisSavePath libraryName '_used_readouts.fasta'];
     possibleOligosPath = [analysisSavePath libraryName '_possible_oligos.fasta'];
     oligosPath = [analysisSavePath libraryName '_oligos.fasta'];
@@ -523,6 +525,7 @@
                     isoSpecificityTablePath, 'load'; ...
                     trDesignerPath, 'load'; ...
                     trRegionsPath, 'load'; ...
+                    trRegionsFilteredPath, 'load';...
                     readoutPath, 'crashIfNone'; ...
                     codebookPath, 'crashIfNone'; ...
                     usedReadoutPath, 'delete'; ...
@@ -1014,6 +1017,18 @@
         geneids={targetRegions.id}';
         numRegions={targetRegions.numRegions}';
         writetable(table(genenames,geneids,numRegions),[analysisSavePath 'targetRegions.csv'],'WriteRowNames',false)
+        
+        % write the target region sequences,isospecificity scores out
+        genenamesIso=repelem(genenames,[numRegions{:}]);
+        geneidsIso=repelem(geneids,[numRegions{:}]);
+        isoSpecificity={targetRegions.isoSpecificity};
+        specificity={targetRegions.specificity};
+        targetRegionSequence={targetRegions.sequence};
+        isoSpecificity=[isoSpecificity{:}]';
+        specificity=[specificity{:}]';
+        targetRegionSequence=[targetRegionSequence{:}]';
+        writetable(table(genenamesIso,geneidsIso,isoSpecificity,specificity,targetRegionSequence),[analysisSavePath 'targetRegionsMouseSequence.all.csv'],'WriteRowNames',false);
+
         %% ------------------------------------------------------------------------
         % Step 2: Compile the library 
         %  The target regions designed above will be compiled into template
@@ -1073,48 +1088,71 @@
         fprintf(1, '%s - Filtering targetRegions by method %s\n', datestr(datetime), targetRegionsFilter.tRFilterMethod);
         fprintf(logFID, '%s - Filtering targetRegions by method %s\n', datestr(datetime), targetRegionsFilter.tRFilterMethod);
         
-        
-        switch targetRegionsFilter.tRFilterMethod
-            case ('default')
+        if ~exist(trRegionsFilteredPath)
+            switch targetRegionsFilter.tRFilterMethod
+                case ('default')
                 % Do nothing.  Trust upstream filtering approach
                 
-            case ('parameter')
+                case ('parameter')
                 % Filter by defined parameter
                 
-                targetRegions = findFilteredTargetRegions(targetRegions, ...
+                    targetRegions = findFilteredTargetRegions(targetRegions, ...
                                                           geneIsoformList, ...
                                                           min(numProbesPerGene(:)), ...
                                                           logFID, ...
                                                           targetRegionsFilter.tRFilterField, ...
                                                           targetRegionsFilter.tRFilterParameters);
                                                       
-            case ('relaxIsospecificity')
+                case ('relaxIsospecificity')
                 % Return regions of genes that have min isospecificity to
                 % yield at least minNumberOfProbes on each target isoform
                 
-                targetRegions = findExpandedIsospecificityTargetRegions(targetRegions, ...
+                    targetRegions = findExpandedIsospecificityTargetRegions(targetRegions, ...
                                         geneIsoformList, ...
                                         min(numProbesPerGene(:)), ... 
                                         logFID);
                 
-            case ('commonRegions')
+                case ('commonRegions')
                 % Return regions of genes that are common across isoforms
                 % and each isoform carries 0 or at least minNumberOfProbes
                 % targetRegions.
                 
-                targetRegions = findCommonTargetRegions(targetRegions, ...
+                    targetRegions = findCommonTargetRegions(targetRegions, ...
                                                         geneIsoformList, ...
                                                         min(numProbesPerGene(:)), ... 
                                                         logFID);
                 
                 
-            otherwise
-                error('obj.targetRegionsFilter.method incorrectly specified');
+                otherwise
+                    error('obj.targetRegionsFilter.method incorrectly specified');
+            end
+            targetRegions.Save(trRegionsFilteredPath);
+            fprintf(logFID, '%s - Target regions saved to %s\n', datestr(datetime), trRegionsFilteredPath);
+        else
+            display(['Found: ' trRegionsFilteredPath]);
+            targetRegions = TargetRegions.Load(trRegionsFilteredPath);
+
+            fprintf(logFID, '%s - Target regions loaded from %s\n', datestr(datetime), trRegionsFilteredPath);
         end
         
        fprintf(1, '%s - TargetRegions filtering complete!\n', datestr(datetime)); 
        fprintf(logFID, '%s - TargetRegions filtering complete!\n', datestr(datetime));
         
+       genenames={targetRegions.geneName}';
+       geneids={targetRegions.id}';
+       numRegions={targetRegions.numRegions}';
+       writetable(table(genenames,geneids,numRegions),[analysisSavePath 'targetRegions_after_filter.csv'],'WriteRowNames',false) 
+% write the target region sequences,isospecificity scores out
+        genenamesIso=repelem(genenames,[numRegions{:}]);
+        geneidsIso=repelem(geneids,[numRegions{:}]);
+        isoSpecificity={targetRegions.isoSpecificity};
+        specificity={targetRegions.specificity};
+        targetRegionSequence={targetRegions.sequence};
+        isoSpecificity=[isoSpecificity{:}]';
+        specificity=[specificity{:}]';
+        targetRegionSequence=[targetRegionSequence{:}]';
+        writetable(table(genenamesIso,geneidsIso,isoSpecificity,specificity,targetRegionSequence),[analysisSavePath 'targetRegionsMouseSequence.after.filter.csv'],'WriteRowNames',false);
+
 
         
         %% ------------------------------------------------------------------------
@@ -1202,10 +1240,10 @@
         %check if gene and ids match the reference
         genes_from_ids=targetRegions(ismember({targetRegions.id}, finalIds));
         genenames=targetRegions(ismember({targetRegions.geneName}, finalGenes));
-        if length(setdiff({genenames.geneName},{genes_from_ids.geneName}))>0
-        warning([char(setdiff({genenames.geneName},{genes_from_ids.geneName})),' ',char(setdiff({genes_from_ids.id},{genenames.id})),' is different from the reference']);
-        fprintf(logFID, ['WARNING! ', char(setdiff({genenames.geneName},{genes_from_ids.geneName})),' ',char(setdiff({genes_from_ids.id},{genenames.id})),' is different from the reference\n']);
-        end
+        %if length(setdiff({genenames.geneName},{genes_from_ids.geneName}))>0
+        %warning([char(setdiff({genenames.geneName},{genes_from_ids.geneName})),' ',char(setdiff({genes_from_ids.id},{genenames.id})),' is different from the reference']);
+        %fprintf(logFID, ['WARNING! ', char(setdiff({genenames.geneName},{genes_from_ids.geneName})),' ',char(setdiff({genes_from_ids.id},{genenames.id})),' is different from the reference\n']);
+        %end
 
         if versionMatch
             finalTargetRegions = targetRegions(ismember({targetRegions.id}, finalIds)); % Extract only the desired target regions
@@ -1572,7 +1610,7 @@
             Genes=Genes';
             ProbeNumbers=ProbeNumbers';
             writetable(table(Genes,ProbeNumbers),[analysisSavePath 'probesPerGeneMergedCode.csv'],'WriteRowNames',false);
-             
+                        
             if keepAllPossibleProbes
                 if obj.debugMode
                     assignin('base', 'allOligos', allOligos);
